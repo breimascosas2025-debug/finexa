@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://finexa-finanzas-inteligentes.vercel.app/sitemap.xml

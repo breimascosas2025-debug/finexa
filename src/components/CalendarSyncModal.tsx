@@ -5,6 +5,7 @@ import {
   getCachedCalendarToken,
   setCachedCalendarToken,
 } from '../lib/firebase';
+import { disconnectGoogleSession } from '../services/googleAuthService';
 import {
   syncDebtReminderToGoogle,
   syncSubscriptionReminderToGoogle,
@@ -20,6 +21,10 @@ interface CalendarSyncModalProps {
   onClose: () => void;
   debts: DebtItem[];
   subscriptions: SubscriptionItem[];
+  onUpdateDebt?: (updatedDebt: DebtItem) => void;
+  onUpdateSubscription?: (updatedSub: SubscriptionItem) => void;
+  isAutoSyncEnabled?: boolean;
+  onToggleAutoSync?: (enabled: boolean) => void;
 }
 
 export const CalendarSyncModal: React.FC<CalendarSyncModalProps> = ({
@@ -27,6 +32,10 @@ export const CalendarSyncModal: React.FC<CalendarSyncModalProps> = ({
   onClose,
   debts,
   subscriptions,
+  onUpdateDebt,
+  onUpdateSubscription,
+  isAutoSyncEnabled = false,
+  onToggleAutoSync,
 }) => {
   const [activeTab, setActiveTab] = useState<'deudas' | 'suscripciones' | 'depositos'>('deudas');
   const [calendarToken, setCalendarToken] = useState<string | null>(getCachedCalendarToken());
@@ -73,7 +82,7 @@ export const CalendarSyncModal: React.FC<CalendarSyncModalProps> = ({
   };
 
   const handleDisconnectGoogleCalendar = () => {
-    setCachedCalendarToken(null);
+    disconnectGoogleSession();
     setCalendarToken(null);
     setUserGoogleEmail(null);
     setSuccessMessage('Sesión de Google Calendar desconectada.');
@@ -97,8 +106,11 @@ export const CalendarSyncModal: React.FC<CalendarSyncModalProps> = ({
 
     setSyncingId(debt.id);
     try {
-      await syncDebtReminderToGoogle(calendarToken, debt);
-      setSuccessMessage(`¡Recordatorio de "${debt.name}" programado en tu Google Calendar!`);
+      const result = await syncDebtReminderToGoogle(calendarToken, debt);
+      if (result?.id && onUpdateDebt) {
+        onUpdateDebt({ ...debt, calendarEventId: result.id });
+      }
+      setSuccessMessage(`¡Recordatorio de "${debt.name}" sincronizado en tu Google Calendar!`);
       setTimeout(() => setSuccessMessage(null), 4000);
     } catch (err: any) {
       if (err.message?.includes('401') || err.message?.includes('token')) {
@@ -128,7 +140,10 @@ export const CalendarSyncModal: React.FC<CalendarSyncModalProps> = ({
 
     setSyncingId(sub.id);
     try {
-      await syncSubscriptionReminderToGoogle(calendarToken, sub);
+      const result = await syncSubscriptionReminderToGoogle(calendarToken, sub);
+      if (result?.id && onUpdateSubscription) {
+        onUpdateSubscription({ ...sub, calendarEventId: result.id });
+      }
       setSuccessMessage(`¡Cobro mensual de "${sub.name}" programado en tu Google Calendar!`);
       setTimeout(() => setSuccessMessage(null), 4000);
     } catch (err: any) {
